@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тройной Турнир</title>
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+
+    <header>
+        <div>
+            <h1 data-i18n="title">Тройной Турнир</h1>
+        </div>
+        <div class="header-actions">
+            <span style="margin-right: 5px; color: #fff;">Language:</span>
+            <select id="langSwitch" onchange="setLang(this.value)" style="height: 35px; width: 90px; margin-right: 10px;">
+                <option value="ru">🇷🇺 RU</option>
+                <option value="en">🇬🇧 EN</option>
+            </select>
+            <button class="secondary" onclick="exportState()" data-i18n="export">Скачать турнир</button>
+            <button class="secondary" onclick="document.getElementById('importFile').click()" data-i18n="import">Загрузить турнир</button>
+            <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importState(event)">
+            <button class="danger" onclick="resetApp()" data-i18n="reset">Сброс</button>
+        </div>
+    </header>
+
+    <div id="fogScreen" class="fog-of-war hidden">
+        <h1 id="fogMessage">Туман войны</h1>
+        <button id="fogBtn" onclick="hideFog()" data-i18n="ready_btn">Я готов</button>
+    </div>
+
+    <div id="intermediateResult" class="fog-of-war hidden">
+        <h1 id="interResultTitle" style="color: #4CAF50;">Результат матча</h1>
+        <div class="card winner-card" style="margin-bottom: 30px; justify-content: center;">
+            <h3 id="interWinnerText" style="color: #222; text-align: center; margin: 0;"></h3>
+        </div>
+        <button onclick="nextMatchClick()" data-i18n="continue_btn">Продолжить турнир</button>
+    </div>
+
+    <div id="autosavePrompt" class="fog-of-war hidden">
+        <h1 data-i18n="autosave_prompt_title">Скачать автосейв турнира?</h1>
+        <div style="display: flex; gap: 20px;">
+            <button onclick="handleAutosaveChoice(true)" data-i18n="yes">Да</button>
+            <button class="secondary" onclick="handleAutosaveChoice(false)" data-i18n="no">Нет</button>
+        </div>
+    </div>
+
+    <main>
+        <div id="setupPhase">
+            <h2 data-i18n="setup_title">Настройка турнира</h2>
+            
+            <div class="setup-row" style="gap: 15px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 180px;">
+                    <label data-i18n="tour_name_label" style="white-space: nowrap; flex-shrink: 0;">Название:</label>
+                    <input type="text" id="tourNameInput" data-i18n-placeholder="tour_name_placeholder" oninput="appState.tournamentName = this.value; saveState();" style="margin: 0; width: 100%;">
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; white-space: nowrap; flex-shrink: 0;">
+                    <label data-i18n="cards_count" style="white-space: nowrap;">Количество карточек:</label>
+                    <input type="number" id="contenderCount" value="3" min="3" style="width: 65px; margin: 0;" oninput="updateListLength()">
+                </div>
+                <div class="switch-container" style="white-space: nowrap; flex-shrink: 0;">
+                    <label data-i18n="tour_mode" style="white-space: nowrap;">Режим турнира:</label>
+                    <select id="tourMode" onchange="appState.mode = this.value; saveState();" style="margin: 0;">
+                        <option value="open" data-i18n="mode_open">Открытый (имена видны)</option>
+                        <option value="closed" data-i18n="mode_closed">Закрытый (описания)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="setup-row" style="gap: 20px;">
+                <div style="flex: 1;">
+                    <label data-i18n="p1_placeholder">Имя игрока 1</label>
+                    <input type="text" id="p1NameInput" data-i18n-placeholder="p1_placeholder" oninput="appState.player1 = this.value; saveState();">
+                </div>
+                <div style="flex: 1;">
+                    <label data-i18n="p2_placeholder">Имя игрока 2</label>
+                    <input type="text" id="p2NameInput" data-i18n-placeholder="p2_placeholder" oninput="appState.player2 = this.value; saveState();">
+                </div>
+            </div>
+
+            <div id="errorBox" class="error-msg hidden" data-i18n="error_odd">Количество карточек должно быть нечетным (3, 5, 7, 9...)!</div>
+
+            <h3 data-i18n="grid_preview">Турнирная сетка</h3>
+            <h5 data-i18n="grid_preview_hint">(Предпросмотр, порядок будет рандомизирован)</h6>
+            <div id="bracketVisualizer" class="bracket-container"></div>
+
+            <h3 data-i18n="contenders">Претенденты:</h3>
+            <div id="participantsList" class="participant-list"></div>
+
+            <div style="text-align: center; margin-top: 20px; display: flex; justify-content: center; gap: 10px;">
+                <button class="secondary" onclick="addContender()" data-i18n="add_contender">Добавить претендента</button>
+                <button class="danger" onclick="subContender()" data-i18n="sub_contender">Удалить претендента</button>
+            </div>
+
+            <div style="text-align: center; margin-top: 20px; display: flex; justify-content: center; gap: 10px;">
+                <button id="btnConfirmSetup" onclick="confirmSetup()" data-i18n="confirm_grid">Подтвердить турнирную сетку</button>
+            </div>
+        </div>
+
+        <div id="fillPhase" class="hidden">
+            <h2 id="fillTitle">Заполнение карточек</h2>
+            <div id="fillForm" class="form-grid"></div>
+            <div style="text-align: center; margin-top: 20px;">
+                <button onclick="finishFillPhase()" data-i18n="save_desc_btn">Сохранить описания (Начать турнир)</button>
+            </div>
+        </div>
+
+        <div id="gamePhase" class="hidden">
+            <h2 id="gameTournamentTitle"></h2>
+            <div class="match-info">
+                <span data-i18n="turn_of">Ход делает:</span> <strong id="currentPlayerName" style="color: #e86701;"></strong>
+            </div>
+            <div id="cardsContainer" class="cards-container"></div>
+        </div>
+
+        <div id="resultPhase" class="hidden" style="text-align: center;">
+            <h2 data-i18n="tournament_over">🎉 Турнир завершен! 🎉</h2>
+            <h3 style="color: #4CAF50;" data-i18n="final_tree">Итоговое дерево решений:</h3>
+            <div id="finalBracketContainer" class="bracket-container" style="justify-content: flex-start; text-align: left;"></div>
+
+            <div id="closedModeDescriptions" class="hidden">
+                <h3 style="margin-top: 40px; color: #e86701;" data-i18n="revealed_cards">Рассекреченные карточки претендентов:</h3>
+                <div id="revealContainer" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px;"></div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-divider"></div>
+        <div>&copy; 2026-<span id="current-year">2026</span> Dmitry Rosin. <a href="./LICENSE.md">PolyForm Noncommercial License 1.0.0 with additional CLA</a>.</div>
+        <div>
+            <a href="https://github.com/applesinus" title="github.com/applesinus">GitHub</a>
+             | 
+            <a href="https://t.me/dapelsin" title="t.me/dapelsin">Contact</a>
+             | 
+            <a href="" title="Will be here soon">Donation</a>
+        </div>
+    </footer>
+
+    <script src="./js/i18n.js"></script>
+    <script src="./js/state.js"></script>
+    <script src="./js/utils.js"></script>
+    <script src="./js/ui.js"></script>
+    <script src="./js/setup.js"></script>
+    <script src="./js/fill.js"></script>
+    <script src="./js/game.js"></script>
+    <script src="./js/result.js"></script>
+    <script src="./js/main.js"></script>
+</body>
+</html>
